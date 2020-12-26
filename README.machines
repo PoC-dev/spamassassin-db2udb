@@ -1,0 +1,19 @@
+Findings with different hardware
+================================
+
+Tests have shown that my AS/400 9401 Model 150 can handle a one-mail-at-a-time
+combined awl and bayes workload with a scan time between 5 seconds for ham
+mails and around 60 seconds for already known spam mails. Messages which have
+to be trained due to autolearn can easily take three minutes and more.
+As soon as more than one message comes in while another one is processed,
+contention will occur. The 150 will stay at 100% CPU for many minutes while
+trying to process parallel work. Eventually, the time intensive learning will
+run into a hard coded timeout of five minutes.
+
+The 150 proved once again that it is a low-end machine. While placing just the
+AWL there is working fairly good, placing the bayes DB there is too much. Even
+multiple indexes for different types of queries make no difference. Once
+parallel processing kicks in, it's game over.
+
+Tests with a 9406 model 800 are ongoing and look much more promising.
+
