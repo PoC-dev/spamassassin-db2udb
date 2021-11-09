@@ -17,7 +17,7 @@ CREATE TABLE bayes_seen (
   id int NOT NULL WITH DEFAULT 0,
   msgid varchar(64) NOT NULL WITH DEFAULT '',
   flag char(1) NOT NULL WITH DEFAULT '',
-  PRIMARY KEY (id,msgid)
+  PRIMARY KEY (id, msgid)
 )
 
 CREATE TABLE bayes_token (
@@ -29,6 +29,8 @@ CREATE TABLE bayes_token (
   PRIMARY KEY (id, token)
 )
 CREATE INDEX bayes_token_idx1 ON bayes_token (id, atime)
+CREATE INDEX bayes_token_idx2 ON bayes_token (id, atime, token)
+CREATE INDEX bayes_token_idx3 ON bayes_token (id, spam_count, ham_count)
 CREATE ALIAS BAYES_TOKN FOR BAYES00004
 
 CREATE TABLE bayes_vars (

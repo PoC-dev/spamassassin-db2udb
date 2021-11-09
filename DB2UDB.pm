@@ -265,7 +265,6 @@ sub calculate_expire_delta {
   my $sth = $self->{_dbh}->prepare($sql);
   unless (defined($sth)) {
     dbg("bayes: calculate_expire_delta: SQL Error: ".$self->{_dbh}->errstr());
-    return %delta;
   }
 
   for (my $i = 1; $i <= $max_expire_mult; $i<<=1) {
@@ -1200,7 +1199,7 @@ sub tok_touch_all {
 
   my ($rows) = $sth->fetchrow();
 
-  $self->{_dbh}->finish();
+  $sth->finish();
   @bindings = undef;
 
 
@@ -1477,6 +1476,12 @@ sub backup_database {
 
   my $sth = $self->{_dbh}->prepare($token_sql);
   unless (defined ($sth)) {
+    dbg("bayes: backup_database: SQL error: ".$self->{_dbh}->errstr());
+    return 0;
+  }
+
+  $sth->execute($self->{_userid});
+  if (defined($self->{_dbh}->errstr())) {
     dbg("bayes: backup_database: SQL error: ".$self->{_dbh}->errstr());
     return 0;
   }
@@ -2498,8 +2503,6 @@ private instance (String) _token_select_string
 Description:
 This method returns the string to be used in SELECT statements to represent
 the token column.
-
-The default is to use the RPAD function to pad the token out to 5 characters.
 
 =cut
 

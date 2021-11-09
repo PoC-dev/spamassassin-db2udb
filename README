@@ -7,14 +7,15 @@ peculiarities of the IBM i (formerly known as IBM iSeries formerly known as
 AS/400) integrated DB2/UDB database and it's accompanying ODBC driver.
 
 SQLBasedAddrList.pm is a patched version of the file with the same name from
-Spamassassin.
+Spamassassin, which is meant to work with stock SQL and DB/2 UDB SQL. Function
+on stock SQL has not been tested.
 
 Both files have been derived from Version 3.4.2 and inherit the same license as
 the mentioned original files.
 
 In addition, a tiny program in positional ILE RPG has been provided for
 housekeeping the Auto-Whitelist. It is licensed under the GPL v2 or later
-versions, at your option. Upload into a source PF, compile and run it with a
+versions, at your option. Upload into a source PF, compile. Run it with a
 scheduled job entry:
 
   ADDJOBSCDE JOB(AWL_EXPIRE) CMD(CALL PGM(SPAMASSASS/AWL_EXPIRE)) 
@@ -33,7 +34,7 @@ stock SQL.pm and SQLBasedAddrList.pm expects.  Peculiarities encountered:
 
 - $sth->rows is correct for SELECTs, but not for INSERTs, UPDATEs, DELETEs.
 
-It seems, the only reliable way to determine if an error happened is to check
+It seems the only reliable way to determine if an error happened is to check
 if $sth->errstr is defined.
 
 To enable my old AS/400 to have some meaningful workload, I decided to adapt
@@ -54,7 +55,7 @@ Login/Requesting an IBM ID:
 Support Page for IBM i Access - Client solutions, including download links:
   https://www.ibm.com/support/pages/node/633843
 
-You need the IBMiAccess_v1r1_LinuxAP.zip. It contains sundirectories for
+You need the IBMiAccess_v1r1_LinuxAP.zip. It contains subdirectories for
 supported CPU architectures, in turn containing readymade DEB and RPM packages.
 Install the matching one with dpkg -i or rpm -i.
 
@@ -79,7 +80,7 @@ sure you've configured TCP/IP services properly, and basic communication
 between the Linux install, and IBM i is working.
 
 Test the connection with
-  isql -v Nibbler spambays <password-here>
+  isql -v Nibbler <userprofilename> <password-here>
 
 Example entry for spamassassin's local.cf file for Bayes and AWL on IBM i:
   bayes_store_module Mail::SpamAssassin::BayesStore::DB2UDB
@@ -98,13 +99,13 @@ the IBM i Access Client's "Run SQL scrips" function, or upload the files via
 FTP into a source physical file and use RUNSQLSTM for executing the commands in
 there.
 Messages that the file could not be recorded in the journal can be ignored. So
-far, the scripts do not support transactional processing. This feature is
-thought for a later version.
+far, the script(s) do not support transactional processing. This feature is
+planned for a later version.
 
 Trying to create the tables traditionally with DDS did not yield tables usable
 by Spamassassin so far.
 
-After everything is ready, you might migrate your existing database (most
+After everything is prepared, you might migrate your existing database (most
 likely from MySQL) into the IBM i database. See the Spamassassin provided
 sa-learn command. You can backup and restore a database with it.
 
@@ -127,8 +128,13 @@ I'm sure there are yet undiscovered ones. What I've tested so far:
   restore of about 5 million tokens would have run for weeks.
 
 - Sa-learn --restore on the same Linux/Spamassassin Combo. The database was
-  located on a IBM Power 520 Express (8203-E4a) running IBM i 7.2. It was
+  located on a IBM Power 520 Express (8203-E4A) running IBM i 7.2. It was
   accessed with the IBM iAccess ODBC Driver.
+
+- Sa-learn --restore on the same Linux/Spamassassin Combo. The database was
+  located on a IBM 9406-800 running IBM i V5R4. It was accessed with the older
+  IBM iSeries Access driver.
+
 
 As far as I know the current iACS driver does not support connections to OS/400
 versions older than V5. If you want to make use of older systems, you need to
@@ -140,18 +146,18 @@ Please provide feedback to my mail address, poc@pocnet.net.
 ToDo
 ====
 - Better error messages. The original files had the same error messages for
-  different error conditions in the code. This makes findind the right spot for
+  different error conditions in the code. This makes finding the right spot for
   chasing a bug unnecessary hard. Partly done.
 
 - Implement transactional consistency with START TRANSACTION and
-  COMMIT/ROLLBACK to make sure, the database is consistent even after a program
-  error had the database modifications done just in part.
+  COMMIT/ROLLBACK to make sure the database is consistent even after a program
+  error had the database modifications done just in parts.
 
 - Possibly convert sa-learn --force-expire to a SQL or RPG program running on
   the IBM i machine for better performance and increased efficiency.
 
-- After stability is proven for some Months by different users, and issues have
+- After stability is proven for some time by different users, and issues have
   been resolved, try to integrate us into the main Spamassassin source tree.
 
 Patrik Schindler <poc@pocnet.net>
-December 2020
+August 2021

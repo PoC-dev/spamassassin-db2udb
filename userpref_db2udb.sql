@@ -5,4 +5,4 @@ CREATE TABLE userpref (
   prefid int NOT NULL,
   PRIMARY KEY (prefid)
 )
-CREATE INDEX username on userpref (username)
+CREATE INDEX userpref01 on userpref (username)
