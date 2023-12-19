@@ -2,6 +2,10 @@ This project provides two files for use with Spamassassin 3, so the DB2/UDB
 database coming with IBM i can be utilized as Storage Backend for Awl/Txrep and
 Bayes with the aid of ODBC.
 
+Note: Mwanwhile, Spamassassin 4 has been released, with some new code regarding
+database flavors in the generic SQL modules. This project has not yet been
+updated accordingly!
+
 DB2UDB.pm is an adaption of the stock SQL.pm included with Spamassassin for the
 peculiarities of the IBM i (formerly known as IBM iSeries formerly known as
 AS/400) integrated DB2/UDB database and it's accompanying ODBC driver.
