@@ -2,7 +2,7 @@ This project provides two files for use with Spamassassin 3, so the DB2/UDB
 database coming with IBM i can be utilized as Storage Backend for Awl/Txrep and
 Bayes with the aid of ODBC.
 
-Note: Mwanwhile, Spamassassin 4 has been released, with some new code regarding
+Note: Meanwhile, Spamassassin 4 has been released, with some new code regarding
 database flavors in the generic SQL modules. This project has not yet been
 updated accordingly!
 
