@@ -4,5 +4,5 @@ CREATE TABLE userpref (
   value varchar(8) NOT NULL WITH DEFAULT '',
   prefid int NOT NULL,
   PRIMARY KEY (prefid)
-)
-CREATE INDEX userpref01 on userpref (username)
+);
+CREATE INDEX userpref01 on userpref (username);
