@@ -1,4 +1,4 @@
-== Findings with different hardware
+## Findings with different hardware
 Database size:
 - AWL: 2,600 entries.
 - Bayes: 600,000 tokens, 590,000 seen.
