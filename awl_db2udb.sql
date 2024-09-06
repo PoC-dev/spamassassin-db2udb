@@ -4,7 +4,7 @@ CREATE TABLE awl (
   ip varchar(16) NOT NULL WITH DEFAULT '',
   msgcount int NOT NULL WITH DEFAULT 0,
   totscore float NOT NULL WITH DEFAULT 0,
-  signedby char(48) WITH DEFAULT '',
+  signedby char(48) NOT NULL WITH DEFAULT '',
   last_hit timestamp NOT NULL WITH DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (username,email,signedby,ip)
 );
