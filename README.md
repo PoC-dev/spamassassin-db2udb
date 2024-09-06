@@ -8,9 +8,9 @@ This project provides two files for use with Spamassassin 3, so the DB2/UDB data
 
 Both files have been derived from Version 3.4.6 and inherit the same license as the mentioned original files.
 
-In addition, a tiny program in positional ILE RPG has been provided for housekeeping the TXREP table. It is licensed under the GPL v2 or later versions, at your option. Upload into a source PF, compile. Run it with a scheduled job entry:
+In addition, the tiny program `txrep_exp.rpgle` in positional ILE RPG with embedded SQL has been provided for housekeeping the TXREP table. It is licensed under the GPL v2 or later versions, at your option. Upload into a source PF, compile. Run it with a scheduled job entry:
 ```
-addjobscde job(awl_expire) cmd(call pgm(spamassass/awl_expire)) frq(*weekly) scddate(*none) scdday(*all) scdtime('04:37') text('Purge old records from Spamassassin-AWL')
+addjobscde job(txrep_exp) cmd(call pgm(spamassass/txrep_exp)) frq(*weekly) scddate(*none) scdday(*all) scdtime('04:37') text('Purge old records from Spamassassin-TXREP')
 ```
 
 ## Rationale.
