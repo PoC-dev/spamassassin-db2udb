@@ -26,8 +26,8 @@ To enable my old AS/400 to have some meaningful workload, I decided to adapt the
 
 ## Installation.
 Install the ODBC packages for your particular Linux distro. Install the IBM i ODBC driver for Linux. You can download it from ESS, but you need an IBM ID for signing in. It can be obtained without a fee.
-- [https://www.ibm.com/servers/eserver/ess/ProtectedServlet.wss](Login/Requesting an IBM ID)
-- [https://www.ibm.com/support/pages/node/633843](Support Page for IBM i Access - Client solutions) including download links
+- [Login/Requesting an IBM ID](https://www.ibm.com/servers/eserver/ess/ProtectedServlet.wss)
+- [Support Page for IBM i Access - Client solutions](https://www.ibm.com/support/pages/node/633843) including download links
 
 You need the *IBMiAccess_v1r1_LinuxAP.zip*. It contains subdirectories for supported CPU architectures, in turn containing readymade DEB and RPM packages. Install the matching one with `dpkg -i` or `rpm -i`.
 
