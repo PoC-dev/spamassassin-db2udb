@@ -65,7 +65,12 @@ For creating the database tables, you can either
 - use the IBM i Access Client's "Run SQL scrips" function,
 - upload the files via FTP into a source physical file and use `runsqlstm` for executing the commands in there.
 
-Messages that a created file could not be recorded in the journal can be ignored. So far, the script(s) do not support transactional processing. This feature is planned for a later version.
+To enable transactional processing, the tables need to be journaled. In a 5250 session, issue these commands:
+```
+crtjrnrcv jrnrcv(sa00000001)
+crtjrn jrn(sajrn) jrnrcv(*curlib/sa00000001) dltrcv(*yes) rcvsizopt(*rmvintent) jrncache(*yes)
+strjrnpf file(*curlib/bayes_seen *curlib/bayes_vars *curlib/bayes00001 *curlib/bayes00002 *curlib/bayes00003 *curlib/txrep) jrn(*curlib/sajrn) omtjrne(*opnclo)
+```
 
 Trying to create the tables traditionally with DDS did not yield tables usable by Spamassassin so far.
 
