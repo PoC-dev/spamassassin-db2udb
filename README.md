@@ -76,6 +76,7 @@ To ease access from 5250 sessions, the SQL commands create 10 char table- and fi
 
 To enable transactional processing, the tables need to be journaled. In a 5250 session, issue these commands:
 ```
+chgcurlib curlib(spamassass)
 crtjrnrcv jrnrcv(sa00000001)
 crtjrn jrn(sajrn) jrnrcv(*curlib/sa00000001) dltrcv(*yes) rcvsizopt(*rmvintent) jrncache(*yes)
 strjrnpf file(*curlib/bayes_seen *curlib/bayes_vars *curlib/bayes00001 *curlib/bayes00002 *curlib/bayes00003 *curlib/txrep) jrn(*curlib/sajrn) omtjrne(*opnclo)
