@@ -7,7 +7,7 @@ Tests have shown that my AS/400 9401 Model 150 can handle a one-mail-at-a-time c
 
 While placing just the AWL there is working fairly good, placing the Bayes DB in addition is too much for even small sites. Even multiple indexes for different types of queries make no difference. Once parallel processing kicks in, it's game over. This can happen easily when mails come in more frequently than every 5 minutes or so.
 
-Tests with a 9406 model 800 look much more promising. Spam mails with high scores take around 10-15 seconds to be scanned.
+Tests with a 9406 model 800 look much more promising. Spam mails with high scores take around 10-15 seconds to be scanned. Unfortunately, this machine needs double the electrical power than a model 150, depending on installed disks.
 
 ----
 

@@ -117,7 +117,7 @@ As far as I know the current iACS driver does not support connections to OS/400 
 - Possibly convert `sa-learn --force-expire` to a local SQL or RPG program running on the IBM i machine for better performance and increased efficiency.
 - After stability is proven for some time by different users, and issues have been resolved, try to integrate us into the main Spamassassin source tree.
 
-The latter point proves to be challenging. Apparently there are no people besides me using IBM i as storage backend for Spamassassin.
+The latter point proves to be challenging. Apparently there are no people besides me using IBM i as storage backend for Spamassassin. And I don't use the functionality regularly for reasons being described in [README.machines.md](README.machines.md).
 
 ----
 
