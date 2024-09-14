@@ -29,7 +29,7 @@ properly set up an ODBC connection to the machine.
 
 In addition, this module will support rollback on error, if the table objects
 are journalled. For more information please review the instructions in
-sql/README.db2udb.
+sql/README.db2udb. (Note: This is not yet implemented.)
 
 =cut
 
@@ -40,11 +40,7 @@ use warnings;
 # use bytes;
 use re 'taint';
 use Errno qw(EBADF);
-
-BEGIN {
-  eval { require Digest::SHA; import Digest::SHA qw(sha1); 1 }
-  or do { require Digest::SHA1; import Digest::SHA1 qw(sha1) }
-}
+use Digest::SHA qw(sha1);
 
 use Mail::SpamAssassin::BayesStore;
 use Mail::SpamAssassin::Logger;
@@ -232,6 +228,7 @@ sub untie_db {
   return unless (defined($self->{_dbh}));
 
   $self->{db_writable_p} = 0;
+
   $self->{_dbh}->disconnect();
   $self->{_dbh} = undef;
 }
@@ -260,11 +257,13 @@ sub calculate_expire_delta {
   my $sql = "SELECT COUNT(*)
                FROM bayes_token
               WHERE id = ?
-                AND atime < ? FOR READ ONLY";
+                AND atime < ?";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: calculate_expire_delta: SQL Error: ".$self->{_dbh}->errstr());
+    return %delta;
   }
 
   for (my $i = 1; $i <= $max_expire_mult; $i<<=1) {
@@ -327,7 +326,8 @@ sub token_expiration {
            WHERE id = ?
              AND atime < ?";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: token_expiration: SQL error: ".$self->{_dbh}->errstr());
     $deleted = 0;
@@ -335,6 +335,7 @@ sub token_expiration {
   }
 
   $sth->execute($self->{_userid}, $too_old);
+
   if (defined($self->{_dbh}->errstr())) {
     dbg("bayes: token_expiration: SQL error: ".$self->{_dbh}->errstr());
     $deleted = 0;
@@ -358,6 +359,7 @@ sub token_expiration {
                AND atime < ?";
 
     $self->{_dbh}->do($sql, undef, $self->{_userid}, $too_old);
+
     if (defined($self->{_dbh}->errstr())) {
       dbg("bayes: token_expiration: SQL error: ".$self->{_dbh}->errstr());
       $deleted = 0;
@@ -379,7 +381,7 @@ sub token_expiration {
   if (defined($self->{_dbh}->errstr())) {
     # Very bad, we actually deleted the tokens, but were unable to update
     # bayes_vars with the new data.
-    # FIXME: A perfect scenario for using START TRANSACTION/COMMIT/ROLLBACK!
+    # FIXME: A perfect scenario for using COMMIT/ROLLBACK!
     dbg("bayes: token_expiration: SQL error: ".$self->{_dbh}->errstr());
     dbg("bayes: bayes database now in inconsistent state, suggest a backup/restore");
     goto token_expiration_final;
@@ -456,15 +458,17 @@ sub seen_get {
  
   my $sql = "SELECT flag FROM bayes_seen
               WHERE id = ?
-                AND msgid = ? FOR READ ONLY";
+                AND msgid = ?";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: seen_get: SQL Error: ".$self->{_dbh}->errstr());
     return;
   }
 
   $sth->execute($self->{_userid}, $msgid);
+
   if ($self->{_dbh}->errstr()) {
     dbg("bayes: seen_get: SQL error: ".$self->{_dbh}->errstr());
     return;
@@ -589,15 +593,17 @@ sub get_storage_variables {
                     last_atime_delta, last_expire_reduce, oldest_token_age,
                     newest_token_age
                FROM bayes_vars
-              WHERE id = ? FOR READ ONLY";
+              WHERE id = ?";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: get_storage_variables: SQL error: ".$self->{_dbh}->errstr());
     return (0,0,0,0,0,0,0,0,0,0,0);
   }
 
   $sth->execute($self->{_userid});
+
   if (defined($self->{_dbh}->errstr())) {
     dbg("bayes: get_storage_variables: SQL error: ".$self->{_dbh}->errstr());
     return (0,0,0,0,0,0,0,0,0,0,0);
@@ -651,7 +657,7 @@ sub dump_db_toks {
   my $sql = "SELECT $token_select, spam_count, ham_count, atime
                FROM bayes_token
               WHERE id = ?
-                AND (spam_count > 0 OR ham_count > 0) FOR READ ONLY";
+                AND (spam_count > 0 OR ham_count > 0)";
 
   my $sth = $self->{_dbh}->prepare($sql);
   unless (defined($sth)) {
@@ -660,6 +666,7 @@ sub dump_db_toks {
   }
 
   $sth->execute($self->{_userid});
+
   if (defined($self->{_dbh}->errstr())) {
     dbg("bayes: dump_db_toks: SQL error: ".$self->{_dbh}->errstr());
     return;
@@ -731,15 +738,17 @@ sub get_running_expire_tok {
 
   return 0 unless (defined($self->{_dbh}));
 
-  my $sql = "SELECT max(runtime) from bayes_expire WHERE id = ? FOR READ ONLY";
+  my $sql = "SELECT max(runtime) from bayes_expire WHERE id = ?";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: get_running_expire_tok: SQL error: ".$self->{_dbh}->errstr());
     return 0;
   }
 
   $sth->execute($self->{_userid});
+
   if (defined($self->{_dbh}->errstr())) {
     dbg("bayes: get_running_expire_tok: SQL error: ".$self->{_dbh}->errstr());
     return 0;
@@ -819,7 +828,7 @@ sub remove_running_expire_tok {
 public instance (Integer, Integer, Integer) tok_get (String $token)
 
 Description:
-This method retrieves a specificed token (C<$token>) from the database
+This method retrieves a specified token (C<$token>) from the database
 and returns it's spam_count, ham_count and last access time.
 
 =cut
@@ -832,15 +841,17 @@ sub tok_get {
   my $sql = "SELECT spam_count, ham_count, atime
                FROM bayes_token
               WHERE id = ?
-                AND token = ? FOR READ ONLY";
+                AND token = ?";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: tok_get: SQL error: ".$self->{_dbh}->errstr());
     return (0,0,0);
   }
 
   $sth->execute($self->{_userid}, $token);
+
   if (defined($self->{_dbh}->errstr())) {
     dbg("bayes: tok_get: SQL error: ".$self->{_dbh}->errstr());
     return (0,0,0);
@@ -865,7 +876,7 @@ public instance (\@) tok_get (@ $tokens)
 
 Description:
 This method retrieves the specified tokens (C<$tokens>) from storage and returns
-an array ref of arrays spam count, ham acount and last access time.
+an array ref of arrays spam count, ham count and last access time.
 
 =cut
 
@@ -908,17 +919,19 @@ sub tok_get_all {
 	push(@bindings, $tokens[$search_index]);
       }
       chop $in_str;
-      $in_str .= ') FOR READ ONLY';
+      $in_str .= ')';
 
       my $dynamic_sql = $multi_sql . $in_str;
 
       my $sth = $self->{_dbh}->prepare($dynamic_sql);
+
       unless (defined($sth)) {
 	dbg("bayes: tok_get_all: SQL error: ".$self->{_dbh}->errstr());
 	return [];
       }
 
       $sth->execute($self->{_userid}, @bindings);
+
       if (defined($self->{_dbh}->errstr())) {
 	dbg("bayes: tok_get_all: SQL error: ".$self->{_dbh}->errstr());
 	return [];
@@ -1084,6 +1097,8 @@ sub tok_touch {
   my ($self, $token, $atime) = @_;
 
   return 0 unless (defined($self->{_dbh}));
+
+  # retrieve the number of affected rows
   my $sql = "SELECT COUNT(*) FROM bayes_token
               WHERE id = ?
                 AND token = ?
@@ -1163,7 +1178,6 @@ do in tok_get_all)
 
 =cut
 
-
 sub tok_touch_all {
   my ($self, $tokens, $atime) = @_;
 
@@ -1171,29 +1185,35 @@ sub tok_touch_all {
 
   return 1 unless (scalar(@{$tokens}));
 
-  # Check number of rows to be affected
-  my $sql = "SELECT COUNT(*) FROM bayes_token
-                    WHERE id = ? AND token IN (";
+
+  # assemble WHERE clause once
+  my $sqlwhere = "WHERE id = ? AND token IN (";
 
   my @bindings = ($self->{_userid});
   foreach my $token (@{$tokens}) {
-    $sql .= "?,";
+    $sqlwhere .= "?,";
     push(@bindings, $token);
   }
-  chop($sql); # get rid of trailing ,
+  chop($sqlwhere); # get rid of trailing ,
 
-  $sql .= ") AND atime < ?";
+  $sqlwhere .= ") AND atime < ?";
   push(@bindings, $atime);
+
+
+  # retrieve the number of affected rows for later update
+  my $sql = "SELECT COUNT(*) FROM bayes_token " . $sqlwhere;
 
   my $sth = $self->{_dbh}->prepare($sql);
   unless (defined($sth)) {
-    dbg("bayes: tok_touch_all: SQL error: ".$self->{_dbh}->errstr());
+    dbg("bayes: tok_touch_all: SQL prepare error retrieving token count: " . 
+	$self->{_dbh}->errstr());
     return [];
   }
 
   $sth->execute(@bindings);
   if (defined($self->{_dbh}->errstr())) {
-    dbg("bayes: tok_touch_all: SQL error: ".$self->{_dbh}->errstr());
+    dbg("bayes: tok_touch_all: SQL execute error retrieving token count: " . 
+	$self->{_dbh}->errstr());
     return 0;
   }
 
@@ -1203,24 +1223,14 @@ sub tok_touch_all {
   @bindings = undef;
 
 
-  # if we didn't update a row then no need to update newest_token_age
+  # if we didn't need update a row then no need to update newest_token_age
   if ($rows eq 0) {
     return 1;
   }
 
 
   # Now really do the update.
-  $sql = "UPDATE bayes_token SET atime = ? WHERE id = ? AND token IN (";
-
-  @bindings = ($atime, $self->{_userid});
-  foreach my $token (@{$tokens}) {
-    $sql .= "?,";
-    push(@bindings, $token);
-  }
-  chop($sql); # get rid of trailing ,
-
-  $sql .= ") AND atime < ?";
-  push(@bindings, $atime);
+  $sql = "UPDATE bayes_token SET atime = ? " . $sqlwhere;
 
   $self->{_dbh}->do($sql, undef, @bindings);
 
@@ -1230,8 +1240,9 @@ sub tok_touch_all {
   }
 
   # need to check newest_token_age
-  # no need to check oldest_token_age since we would only update if the
-  # atime was newer than what is in the database
+  # no need to check oldest_token_age since we would only update
+  # if the atime was newer than what is in the database
+  # FIXME: Use commitment control here for consistency.
   $sql = "UPDATE bayes_vars
              SET newest_token_age = ?
            WHERE id = ?
@@ -1254,7 +1265,7 @@ sub tok_touch_all {
 public instance (Boolean) cleanup ()
 
 Description:
-This method perfoms any cleanup necessary before moving onto the next
+This method performs any cleanup necessary before moving onto the next
 operation.
 
 =cut
@@ -1262,24 +1273,29 @@ operation.
 sub cleanup {
   my ($self) = @_;
 
+
   return 1 unless ($self->{needs_cleanup});
 
   # cleanup was needed, go ahead and clear the cleanup flag
   $self->{needs_cleanup} = 0;
 
-  # Check number of rows to be affected
-  my $sql = "SELECT COUNT(*) from bayes_token
-              WHERE id = ?
-                AND spam_count = 0
-                AND ham_count = 0";
+
+  # assemble the WHERE clause just once
+  my $sqlwhere = "WHERE id = ? AND spam_count = 0 AND ham_count = 0";
+
+
+  # retrieve the number of affected rows
+  my $sql = "SELECT COUNT(*) from bayes_token " . $sqlwhere;
 
   my $sth = $self->{_dbh}->prepare($sql);
+
   unless (defined($sth)) {
     dbg("bayes: cleanup: SQL error: ".$self->{_dbh}->errstr());
     return [];
   }
 
   $sth->execute($self->{_userid});
+
   if (defined($self->{_dbh}->errstr())) {
     dbg("bayes: cleanup: SQL error: ".$self->{_dbh}->errstr());
     return 0;
@@ -1289,16 +1305,14 @@ sub cleanup {
 
   $self->{_dbh}->finish();
 
-  # if we didn't update a row then no need to update newest_token_age
+
+  # if we didn't need to update a row then no need to update newest_token_age
   if ($toks_delete eq 0) {
     return 1;
   }
 
 
-  $sql = "DELETE from bayes_token
-              WHERE id = ?
-                AND spam_count = 0
-                AND ham_count = 0";
+  $sql = "DELETE from bayes_token " . $sqlwhere;
 
   $self->{_dbh}->do($sql, undef, $self->{_userid});
 
@@ -1396,7 +1410,7 @@ sub clear_database {
   # a db entry, we want to avoid creating one, just to delete it in a few secs
   if ($self->tie_db_readonly()) {
     # Ok, they must have had a db entry, so now make the connection writable
-   $self->tie_db_writable();
+    $self->tie_db_writable();
   }
   else {
     # If we were unable to create a readonly connection then they must
@@ -1468,19 +1482,21 @@ sub backup_database {
   my $token_sql = "SELECT spam_count, ham_count, atime, $token_select
                      FROM bayes_token
                     WHERE id = ?
-                      AND (spam_count > 0 OR ham_count > 0) FOR READ ONLY";
+                      AND (spam_count > 0 OR ham_count > 0)";
 
   my $seen_sql = "SELECT flag, msgid
                     FROM bayes_seen
-                   WHERE id = ? FOR READ ONLY";
+                   WHERE id = ?";
 
-  my $sth = $self->{_dbh}->prepare($token_sql);
+  my $sth = $self->{_dbh}->prepare_cached($token_sql);
+
   unless (defined ($sth)) {
     dbg("bayes: backup_database: SQL error: ".$self->{_dbh}->errstr());
     return 0;
   }
 
   $sth->execute($self->{_userid});
+
   if (defined($self->{_dbh}->errstr())) {
     dbg("bayes: backup_database: SQL error: ".$self->{_dbh}->errstr());
     return 0;
@@ -1494,7 +1510,8 @@ sub backup_database {
 
   $sth->finish();
 
-  $sth = $self->{_dbh}->prepare($seen_sql);
+  $sth = $self->{_dbh}->prepare_cached($seen_sql);
+
   unless (defined ($sth)) {
     dbg("bayes: backup_database: SQL error: ".$self->{_dbh}->errstr());
     return 0;
@@ -1801,6 +1818,13 @@ sub _connect_db {
     dbg("bayes: database connection established");
   }
 
+  # SQLite PRAGMA attributes - here for tests, see bug 8033
+  if ($self->{_dsn} =~ /^dbi:SQLite:.*?;(.+)/i) {
+    foreach my $attr (split(/;/, $1)) {
+      $dbh->do("PRAGMA $attr");
+    }
+  }
+
   $self->{_dbh} = $dbh;
 
  return 1;
@@ -1825,15 +1849,17 @@ sub _get_db_version {
 
   return ($self->{_db_version_cache}) if (defined($self->{_db_version_cache}));
 
-  my $sql = "SELECT value FROM bayes_global_vars WHERE variable = 'VERSION' FOR READ ONLY";
+  my $sql = "SELECT value FROM bayes_global_vars WHERE variable = 'VERSION'";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: _get_db_version: SQL error: ".$self->{_dbh}->errstr());
     return 0;
   }
 
   $sth->execute();
+
   if (defined($self->{_dbh}->errstr())) {
     dbg("bayes: _get_db_version: SQL error: ".$self->{_dbh}->errstr());
     return 0;
@@ -1883,15 +1909,17 @@ sub _initialize_db {
     }
   }
 
-  my $sqlselect = "SELECT id FROM bayes_vars WHERE username = ? FOR READ ONLY";
+  my $sqlselect = "SELECT id FROM bayes_vars WHERE username = ?";
 
-  my $sthselect = $self->{_dbh}->prepare($sqlselect);
+  my $sthselect = $self->{_dbh}->prepare_cached($sqlselect);
+
   unless (defined($sthselect)) {
     dbg("bayes: _initialize_db (1): SQL error: ".$self->{_dbh}->errstr());
     return 0;
   }
 
   $sthselect->execute($self->{_username});
+
   if ($self->{_dbh}->errstr()) {
     dbg("bayes: _initialize_db (2): SQL error: ".$self->{_dbh}->errstr());
     return 0;
@@ -1899,46 +1927,21 @@ sub _initialize_db {
 
   my ($id) = $sthselect->fetchrow_array();
 
+  $sthselect->finish();
+
   if ($id) {
     $self->{_userid} = $id;
     dbg("bayes: Using userid: ".$self->{_userid});
-    $sthselect->finish();
     return 1;
   }
 
   # Do not create an entry for this user unless we were specifically asked to
   return 0 unless ($create_entry_p);
-  $sthselect->finish();
 
-  # Increment last found ID.
-  my $sqlmaxselect = "SELECT max(id) FROM bayes_vars FOR READ ONLY";
-
-  my $sthmaxselect = $self->{_dbh}->prepare($sqlmaxselect);
-  unless (defined($sthmaxselect)) {
-    dbg("bayes: _initialize_db (3): SQL error: ".$self->{_dbh}->errstr());
-    return 0;
-  }
-
-  $sthmaxselect->execute;
-  if ($self->{_dbh}->errstr()) {
-    dbg("bayes: _initialize_db (4): SQL error: ".$self->{_dbh}->errstr());
-    return 0;
-  }
-
-  ($id) = $sthmaxselect->fetchrow_array();
-
-  if ($id) {
-    $id = $id + 1;
-  } else {
-    $id = 1;
-  }
-
-  $self->{_userid} = $id;
-  dbg("bayes: Using new userid: ".$self->{_userid});
-
-  $sthmaxselect->finish();
-
-  my $sqlinsert = "INSERT INTO bayes_vars (id, username) VALUES (?,?)";
+  # No ID found for requested username. Older releases of DB2 do not support
+  # an identity field with automatic increments, so tell the database what to
+  # insert for the new ID. Let the database setup the other variables as defaults.
+  my $sqlinsert = "INSERT INTO bayes_vars (id, username) VALUES ((SELECT MAX(id) FROM bayes_vars) + 1 ,?)";
 
   $self->{_dbh}->do($sqlinsert,
                                undef,
@@ -2014,13 +2017,15 @@ sub _put_token {
                (id, token, spam_count, ham_count, atime)
                VALUES (?,?,?,?,?)";
 
-    my $sth = $self->{_dbh}->prepare($sql);
+    my $sth = $self->{_dbh}->prepare_cached($sql);
+
     unless (defined($sth)) {
       dbg("bayes: _put_token: SQL error preparing token insert: ".$self->{_dbh}->errstr());
       return 0;
     }
 
     $sth->execute($self->{_userid}, $token, $spam_count, $ham_count, $atime); 
+
     if (defined($self->{_dbh}->errstr())) {
       dbg("bayes: _put_token: SQL error executing token insert: ".$self->{_dbh}->errstr());
       return 0;
@@ -2031,6 +2036,7 @@ sub _put_token {
     $sql = "UPDATE bayes_vars SET token_count = token_count + 1 WHERE id = ?";
 
     $self->{_dbh}->do($sql, undef, $self->{_userid});
+
     if (defined($self->{_dbh}->errstr())) {
       dbg("bayes: _put_token: SQL error updating token count: ".$self->{_dbh}->errstr());
       return 0;
@@ -2040,12 +2046,14 @@ sub _put_token {
     $sql = "SELECT COUNT(*) FROM bayes_vars WHERE id = ? AND newest_token_age < ?";
 
     $sth = $self->{_dbh}->prepare($sql);
+
     unless (defined($sth)) {
       dbg("bayes: _put_token: SQL error preparing affected row count: ".$self->{_dbh}->errstr());
       return 0;
     }
 
     $sth->execute($self->{_userid}, $atime);
+
     if (defined($self->{_dbh}->errstr())) {
       dbg("bayes: _put_token: SQL error executing affected row count: ".$self->{_dbh}->errstr());
       return 0;
@@ -2056,10 +2064,10 @@ sub _put_token {
     $sth->finish();
 
     # Now to the actual update.
-    $sql = "UPDATE bayes_vars SET newest_token_age = ?
-             WHERE id = ? AND newest_token_age < ?";
+    $sql = "UPDATE bayes_vars SET newest_token_age = ?  WHERE id = ? AND newest_token_age < ?";
 
     $self->{_dbh}->do($sql, undef, $atime, $self->{_userid}, $atime);
+
     if (defined($self->{_dbh}->errstr())) {
       dbg("bayes: _put_token: SQL error executing update newest token age: ".$self->{_dbh}->errstr());
       return 0;
@@ -2124,6 +2132,7 @@ sub _put_token {
       }
 
       $self->{_dbh}->do($sql, undef, @args);
+
       if (defined($self->{_dbh}->errstr())) {
 	dbg("bayes: _put_token: SQL error updating spam_count in bayes_token: ".$self->{_dbh}->errstr());
 	return 0;
@@ -2152,6 +2161,7 @@ sub _put_token {
       }
 
       $self->{_dbh}->do($sql, undef, @args);
+
       if (defined($self->{_dbh}->errstr())) {
 	dbg("bayes: _put_token: SQL error updating ham_count in bayes_token: ".$self->{_dbh}->errstr());
 	return 0;
@@ -2212,7 +2222,7 @@ sub _put_tokens {
                    (id, token, spam_count, ham_count, atime)
                    VALUES (?,?,?,?,?)";
 
-  my $insertsth = $self->{_dbh}->prepare($insertsql);
+  my $insertsth = $self->{_dbh}->prepare_cached($insertsql);
 
   unless (defined($insertsth)) {
     dbg("bayes: _put_token: SQL error: ".$self->{_dbh}->errstr());
@@ -2388,15 +2398,17 @@ sub _get_oldest_token_age {
 
   return 0 unless (defined($self->{_dbh}));
 
-  my $sql = "SELECT min(atime) FROM bayes_token WHERE id = ? FOR READ ONLY";
+  my $sql = "SELECT min(atime) FROM bayes_token WHERE id = ?";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: _get_oldest_token_age: SQL error: ".$self->{_dbh}->errstr());
     return 0;
   }
 
   $sth->execute($self->{_userid});
+
   if ($self->{_dbh}->errstr()) {
     dbg("bayes: _get_oldest_token_age: SQL error: ".$self->{_dbh}->errstr());
     return 0;
@@ -2429,15 +2441,17 @@ sub _get_num_hapaxes {
   my $sql = "SELECT count(*)
                FROM bayes_token
               WHERE id = ?
-                AND spam_count + ham_count = 1 FOR READ ONLY";
+                AND spam_count + ham_count = 1";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: _get_num_hapaxes: SQL error: ".$self->{_dbh}->errstr());
     return 0;
   }
 
   $sth->execute($self->{_userid});
+
   if ($self->{_dbh}->errstr()) {
     dbg("bayes: _get_num_hapaxes: SQL error: ".$self->{_dbh}->errstr());
     return 0;
@@ -2473,15 +2487,17 @@ sub _get_num_lowfreq {
               WHERE id = ?
                 AND (spam_count >= 0 AND spam_count < 8)
                 AND (ham_count >= 0 AND ham_count < 8)
-                AND spam_count + ham_count <> 1 FOR READ ONLY";
+                AND spam_count + ham_count <> 1";
 
-  my $sth = $self->{_dbh}->prepare($sql);
+  my $sth = $self->{_dbh}->prepare_cached($sql);
+
   unless (defined($sth)) {
     dbg("bayes: _get_num_lowfreq: SQL error: ".$self->{_dbh}->errstr());
     return 0;
   }
 
   $sth->execute($self->{_userid});
+
   if ($self->{_dbh}->errstr()) {
     dbg("bayes: _get_num_lowfreq: SQL error: ".$self->{_dbh}->errstr());
     return 0;
@@ -2503,6 +2519,10 @@ private instance (String) _token_select_string
 Description:
 This method returns the string to be used in SELECT statements to represent
 the token column.
+
+The default is to use the SUBSTR function to pad the token out to 5 characters.
+Note that by default, DB2/UDB does this padding by itself when a field is defined
+as CHAR instead of VARCHAR.
 
 =cut
 
